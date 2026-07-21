@@ -53,8 +53,9 @@ fun HomeScreen(
         // 感度調整：画面の1/3程度の距離で全開になる
         val dragSensitivityPx = fullHeightPx / 3f
 
-        // 背面：ホーム画面のアイコングリッド
-        IconGrid(appIcons = appIcons)
+// 背面：ホーム画面のアイコングリッド
+        // STEP3でアプリ選択機能を実装するまでの暫定処置として、一覧の先頭20個のみ表示する
+        IconGrid(appIcons = appIcons.take(20))
 
         // 画面最下部の取っ手エリア（開く操作専用・以前の倍の高さ）
         Box(

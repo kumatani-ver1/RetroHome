@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.retro.retrohome.model.AppIcon
 import com.retro.retrohome.ui.screen.HomeScreen
 import com.retro.retrohome.ui.theme.RetroHomeTheme
+import com.retro.retrohome.util.InstalledAppsProvider
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,13 +22,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val dummyIcons = List(20) { index ->
-                        AppIcon(
-                            label = "アプリ${index + 1}",
-                            packageName = "dummy.package.$index"
-                        )
-                    }
-                    HomeScreen(appIcons = dummyIcons)
+                    // STEP2.5: ダミーデータの代わりに、実際にインストールされているアプリ一覧を使う
+                    val installedApps = InstalledAppsProvider.getInstalledApps(applicationContext)
+                    HomeScreen(appIcons = installedApps)
                 }
             }
         }
