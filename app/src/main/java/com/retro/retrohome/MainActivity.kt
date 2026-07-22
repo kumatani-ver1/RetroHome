@@ -12,7 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.retro.retrohome.model.AppIcon
+import com.retro.retrohome.ui.component.AppSelectDialog
 import com.retro.retrohome.ui.component.RenameDialog
 import com.retro.retrohome.ui.screen.HomeScreen
 import com.retro.retrohome.ui.theme.RetroHomeTheme
@@ -28,16 +30,17 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    // 実際にインストールされているアプリ一覧（元データ）
+                    val context = LocalContext.current // アプリ起動に使うためContextを取得
                     val installedApps = InstalledAppsProvider.getInstalledApps(applicationContext)
 
-                    // パッケージ名ごとに変更後のラベルを覚えておく場所
                     var customLabels by remember { mutableStateOf(mapOf<String, String>()) }
-
-                    // 今、編集ダイアログを表示中かどうか
                     var editingIcon by remember { mutableStateOf<AppIcon?>(null) }
 
-                    // 元データに、変更済みラベルを反映したリストを作る
+                    // 10個のインベントリスロット
+                    var appSlots by remember { mutableStateOf<List<AppIcon?>>(List(10) { null }) }
+                    // 「今どの枠（何番目）のアプリを選ぼうとしているか」を記憶（nullならダイアログ非表示）
+                    var selectingSlotIndex by remember { mutableStateOf<Int?>(null) }
+
                     val displayedApps = installedApps.map { appIcon ->
                         val customLabel = customLabels[appIcon.packageName]
                         if (customLabel != null) {
@@ -47,25 +50,48 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // ====== 新規追加：10個のインベントリスロット ======
-                    // とりあえず最初は「空っぽ（null）」が10個並んだリストを作ります。
-                    // 次のステップで、ここに好きなアプリをセットできるようにします。
-                    var appSlots by remember { mutableStateOf<List<AppIcon?>>(List(10) { null }) }
-
                     HomeScreen(
-                        appSlots = appSlots, // ← 新しいHomeScreenに10個の枠を渡す
+                        appSlots = appSlots,
                         appIcons = displayedApps,
                         onSlotClick = { slotIndex ->
-                            // ====== 新規追加：スロットがタップされた時の処理 ======
-                            // （今は空っぽのままにしておき、エラーが出ないことだけを確認します）
-                            // TODO: 「枠が空ならアプリ選択画面を出す」「アプリが入っていれば起動する」処理を後で作ります。
+                            // 【短押し】枠にアプリが入っていれば起動する
+                            val selectedApp = appSlots[slotIndex]
+                            if (selectedApp != null) {
+                                val launchIntent = context.packageManager.getLaunchIntentForPackage(selectedApp.packageName)
+                                if (launchIntent != null) {
+                                    context.startActivity(launchIntent)
+                                }
+                            }
+                        },
+                        onSlotLongClick = { slotIndex ->
+                            // 【長押し】アプリ選択ダイアログを開く
+                            selectingSlotIndex = slotIndex
                         },
                         onLongClickIcon = { longPressedIcon ->
                             editingIcon = longPressedIcon
                         }
                     )
 
-                    // 編集中のアイコンがあれば、ダイアログを表示する
+                    // アプリ選択ダイアログの表示
+                    selectingSlotIndex?.let { slotIndex ->
+                        AppSelectDialog(
+                            installedApps = displayedApps,
+                            onAppSelected = { selectedApp ->
+                                // 選ばれたアプリを該当する枠にセットする
+                                val newSlots = appSlots.toMutableList()
+                                newSlots[slotIndex] = selectedApp
+                                appSlots = newSlots
+
+                                // ダイアログを閉じる
+                                selectingSlotIndex = null
+                            },
+                            onDismiss = {
+                                selectingSlotIndex = null
+                            }
+                        )
+                    }
+
+                    // 名前変更ダイアログの表示
                     editingIcon?.let { icon ->
                         RenameDialog(
                             currentLabel = icon.label,

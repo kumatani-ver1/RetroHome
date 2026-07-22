@@ -30,17 +30,13 @@ import com.retro.retrohome.model.AppIcon
 import com.retro.retrohome.ui.component.RetroAppItem
 import kotlin.math.roundToInt
 
-/**
- * ホーム画面本体。
- * 画面最下部の取っ手エリア（やや広め）を上にスワイプするとアプリ一覧が下からせり上がる。
- * 一覧が開いている間は、画面全体のどこを下にスワイプしても閉じる。
- */
 @Composable
 fun HomeScreen(
-    appSlots: List<AppIcon?>, // 追加：ホーム画面に並べる10個の枠（空ならnull）
-    appIcons: List<AppIcon>,  // 既存：ドロワー（一覧）用の全アプリデータ
-    onSlotClick: (Int) -> Unit, // 追加：枠がタップ/長押しされた時に「何番目か」を返す
-    onLongClickIcon: (AppIcon) -> Unit, // 既存：ドロワー内のアイコン長押し等
+    appSlots: List<AppIcon?>,
+    appIcons: List<AppIcon>,
+    onSlotClick: (Int) -> Unit,       // 変更：短押し用（アプリ起動）
+    onSlotLongClick: (Int) -> Unit,   // 追加：長押し用（アプリ割り当て）
+    onLongClickIcon: (AppIcon) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var openProgress by remember { mutableFloatStateOf(0f) }
@@ -59,11 +55,10 @@ fun HomeScreen(
         val fullHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
         val dragSensitivityPx = fullHeightPx / 3f
 
-        // 背面：ホーム画面のアイコングリッド（2列×5行のインベントリ風レイアウト）
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             contentPadding = PaddingValues(
-                top = 300.dp, // 元の余白を維持
+                top = 300.dp,
                 start = 16.dp,
                 end = 16.dp,
                 bottom = 120.dp
@@ -72,18 +67,16 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize()
         ) {
-            // 固定で10個のスロットを描画する
             items(10) { index ->
                 val appIcon = appSlots.getOrNull(index)
                 RetroAppItem(
                     appIcon = appIcon,
-                    onClick = { onSlotClick(index) },
-                    onLongClick = { onSlotClick(index) } // 長押しでも同じく選択モードへ
+                    onClick = { onSlotClick(index) },         // 短押し
+                    onLongClick = { onSlotLongClick(index) }  // 長押し
                 )
             }
         }
 
-        // 画面最下部の取っ手エリア
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -102,7 +95,6 @@ fun HomeScreen(
                 }
         )
 
-        // 前面：アプリ一覧画面（ドロワー）
         Box(
             modifier = Modifier
                 .fillMaxSize()

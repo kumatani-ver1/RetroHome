@@ -2,6 +2,7 @@ package com.retro.retrohome.ui.component
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -21,12 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.retro.retrohome.model.AppIcon
 
-/**
- * レトロRPG風の横長アイコンカード
- * 左側に正方形のアイコン、右側に最大2行のラベルを配置する
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RetroAppItem(
@@ -62,7 +62,13 @@ fun RetroAppItem(
                 contentAlignment = Alignment.Center
             ) {
                 if (appIcon != null) {
-                    // TODO: 実際のアイコン描画
+                    appIcon.icon?.let { drawable ->
+                        Image(
+                            painter = rememberDrawablePainter(drawable = drawable),
+                            contentDescription = appIcon.label,
+                            modifier = Modifier.size(40.dp) // アイコンのサイズ
+                        )
+                    }
                 }
             }
 
@@ -76,6 +82,7 @@ fun RetroAppItem(
                 Text(
                     text = appIcon?.label ?: "EMPTY",
                     color = Color.White,
+                    fontSize = 14.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
