@@ -4,12 +4,16 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,20 +27,20 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.retro.retrohome.model.AppIcon
-import com.retro.retrohome.ui.component.IconGrid
+import com.retro.retrohome.ui.component.RetroAppItem
 import kotlin.math.roundToInt
 
 /**
  * ホーム画面本体。
  * 画面最下部の取っ手エリア（やや広め）を上にスワイプするとアプリ一覧が下からせり上がる。
  * 一覧が開いている間は、画面全体のどこを下にスワイプしても閉じる。
- *
- * @param onLongClickIcon アイコンが長押しされた時に呼ばれる（ラベル編集ダイアログを開くため）
  */
 @Composable
 fun HomeScreen(
-    appIcons: List<AppIcon>,
-    onLongClickIcon: (AppIcon) -> Unit,
+    appSlots: List<AppIcon?>, // 追加：ホーム画面に並べる10個の枠（空ならnull）
+    appIcons: List<AppIcon>,  // 既存：ドロワー（一覧）用の全アプリデータ
+    onSlotClick: (Int) -> Unit, // 追加：枠がタップ/長押しされた時に「何番目か」を返す
+    onLongClickIcon: (AppIcon) -> Unit, // 既存：ドロワー内のアイコン長押し等
     modifier: Modifier = Modifier
 ) {
     var openProgress by remember { mutableFloatStateOf(0f) }
@@ -53,23 +57,38 @@ fun HomeScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         val fullHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
-        // 感度調整：画面の1/3程度の距離で全開になる
         val dragSensitivityPx = fullHeightPx / 3f
 
-        // 背面：ホーム画面のアイコングリッド（上部にウィジェットエリア分の余白を確保）
-        // STEP3でアプリ選択機能を実装するまでの暫定処置として、一覧の先頭20個のみ表示する
-        IconGrid(
-            appIcons = appIcons.take(20),
-            topPadding = 300.dp,
-            onLongClickIcon = onLongClickIcon
-        )
+        // 背面：ホーム画面のアイコングリッド（2列×5行のインベントリ風レイアウト）
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            contentPadding = PaddingValues(
+                top = 300.dp, // 元の余白を維持
+                start = 16.dp,
+                end = 16.dp,
+                bottom = 120.dp
+            ),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // 固定で10個のスロットを描画する
+            items(10) { index ->
+                val appIcon = appSlots.getOrNull(index)
+                RetroAppItem(
+                    appIcon = appIcon,
+                    onClick = { onSlotClick(index) },
+                    onLongClick = { onSlotClick(index) } // 長押しでも同じく選択モードへ
+                )
+            }
+        }
 
-        // 画面最下部の取っ手エリア（開く操作専用・以前の倍の高さ）
+        // 画面最下部の取っ手エリア
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(96.dp) // 48dp の倍
+                .height(96.dp)
                 .pointerInput(dragSensitivityPx) {
                     detectVerticalDragGestures(
                         onVerticalDrag = { change, dragAmount ->
@@ -83,8 +102,7 @@ fun HomeScreen(
                 }
         )
 
-        // 前面：アプリ一覧画面。下からせり上がる/沈み込むように表示。
-        // 開いている間は画面全体で「下にスワイプして閉じる」操作を受け付ける
+        // 前面：アプリ一覧画面（ドロワー）
         Box(
             modifier = Modifier
                 .fillMaxSize()

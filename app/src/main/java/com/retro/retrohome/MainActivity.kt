@@ -32,10 +32,9 @@ class MainActivity : ComponentActivity() {
                     val installedApps = InstalledAppsProvider.getInstalledApps(applicationContext)
 
                     // パッケージ名ごとに変更後のラベルを覚えておく場所
-                    // 例：{"com.android.chrome": "ブラウザ"}
                     var customLabels by remember { mutableStateOf(mapOf<String, String>()) }
 
-                    // 今、編集ダイアログを表示中かどうか（表示中なら編集対象のAppIconが入る）
+                    // 今、編集ダイアログを表示中かどうか
                     var editingIcon by remember { mutableStateOf<AppIcon?>(null) }
 
                     // 元データに、変更済みラベルを反映したリストを作る
@@ -48,8 +47,19 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // ====== 新規追加：10個のインベントリスロット ======
+                    // とりあえず最初は「空っぽ（null）」が10個並んだリストを作ります。
+                    // 次のステップで、ここに好きなアプリをセットできるようにします。
+                    var appSlots by remember { mutableStateOf<List<AppIcon?>>(List(10) { null }) }
+
                     HomeScreen(
+                        appSlots = appSlots, // ← 新しいHomeScreenに10個の枠を渡す
                         appIcons = displayedApps,
+                        onSlotClick = { slotIndex ->
+                            // ====== 新規追加：スロットがタップされた時の処理 ======
+                            // （今は空っぽのままにしておき、エラーが出ないことだけを確認します）
+                            // TODO: 「枠が空ならアプリ選択画面を出す」「アプリが入っていれば起動する」処理を後で作ります。
+                        },
                         onLongClickIcon = { longPressedIcon ->
                             editingIcon = longPressedIcon
                         }
