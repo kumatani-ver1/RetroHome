@@ -30,10 +30,13 @@ import kotlin.math.roundToInt
  * ホーム画面本体。
  * 画面最下部の取っ手エリア（やや広め）を上にスワイプするとアプリ一覧が下からせり上がる。
  * 一覧が開いている間は、画面全体のどこを下にスワイプしても閉じる。
+ *
+ * @param onLongClickIcon アイコンが長押しされた時に呼ばれる（ラベル編集ダイアログを開くため）
  */
 @Composable
 fun HomeScreen(
     appIcons: List<AppIcon>,
+    onLongClickIcon: (AppIcon) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var openProgress by remember { mutableFloatStateOf(0f) }
@@ -53,9 +56,13 @@ fun HomeScreen(
         // 感度調整：画面の1/3程度の距離で全開になる
         val dragSensitivityPx = fullHeightPx / 3f
 
-// 背面：ホーム画面のアイコングリッド
+        // 背面：ホーム画面のアイコングリッド（上部にウィジェットエリア分の余白を確保）
         // STEP3でアプリ選択機能を実装するまでの暫定処置として、一覧の先頭20個のみ表示する
-        IconGrid(appIcons = appIcons.take(20))
+        IconGrid(
+            appIcons = appIcons.take(20),
+            topPadding = 300.dp,
+            onLongClickIcon = onLongClickIcon
+        )
 
         // 画面最下部の取っ手エリア（開く操作専用・以前の倍の高さ）
         Box(
@@ -93,7 +100,8 @@ fun HomeScreen(
                 },
                 onDragEnd = {
                     openProgress = if (openProgress > 0.5f) 1f else 0f
-                }
+                },
+                onLongClickIcon = onLongClickIcon
             )
         }
     }

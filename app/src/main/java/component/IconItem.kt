@@ -3,7 +3,7 @@ package com.retro.retrohome.ui.component
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,12 +22,13 @@ import com.retro.retrohome.model.AppIcon
 /**
  * ホーム画面に表示するアイコン1個分の見た目
  * 白フチの四角枠 + アイコン画像 + ラベル文字
- * タップすると onClick が呼ばれる
+ * タップすると onClick、長押しすると onLongClick が呼ばれる
  */
 @Composable
 fun IconItem(
     appIcon: AppIcon,
     onClick: (AppIcon) -> Unit,
+    onLongClick: (AppIcon) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -37,7 +38,10 @@ fun IconItem(
             .border(
                 BorderStroke(2.dp, MaterialTheme.colorScheme.onBackground)
             )
-            .clickable { onClick(appIcon) }
+            .combinedClickable(
+                onClick = { onClick(appIcon) },
+                onLongClick = { onLongClick(appIcon) }
+            )
             .padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
