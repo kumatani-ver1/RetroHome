@@ -21,6 +21,7 @@ fun ActionMenuDialog(
     onChangeApp: () -> Unit,
     onRename: () -> Unit,
     onChangeIcon: () -> Unit,
+    onChangeFont: () -> Unit, // ★追加：フォント変更用
     onRemove: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -55,6 +56,15 @@ fun ActionMenuDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onChangeIcon() }
+                            .padding(16.dp)
+                    )
+                }
+                item {
+                    Text(
+                        text = "フォントを変更する", // ★追加
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onChangeFont() }
                             .padding(16.dp)
                     )
                 }

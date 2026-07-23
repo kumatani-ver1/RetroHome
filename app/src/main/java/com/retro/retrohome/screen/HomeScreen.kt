@@ -26,16 +26,18 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.retro.retrohome.model.AppIcon
+import com.retro.retrohome.AppFont
 import com.retro.retrohome.component.RetroAppItem
+import com.retro.retrohome.model.AppIcon
 import kotlin.math.roundToInt
 
 @Composable
 fun HomeScreen(
     appSlots: List<AppIcon?>,
     appIcons: List<AppIcon>,
-    onSlotClick: (Int) -> Unit,       // 変更：短押し用（アプリ起動）
-    onSlotLongClick: (Int) -> Unit,   // 追加：長押し用（アプリ割り当て）
+    currentFont: AppFont,
+    onSlotClick: (Int) -> Unit,
+    onSlotLongClick: (Int) -> Unit,
     onLongClickIcon: (AppIcon) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -71,8 +73,9 @@ fun HomeScreen(
                 val appIcon = appSlots.getOrNull(index)
                 RetroAppItem(
                     appIcon = appIcon,
-                    onClick = { onSlotClick(index) },         // 短押し
-                    onLongClick = { onSlotLongClick(index) }  // 長押し
+                    currentFont = currentFont,
+                    onClick = { onSlotClick(index) },
+                    onLongClick = { onSlotLongClick(index) }
                 )
             }
         }

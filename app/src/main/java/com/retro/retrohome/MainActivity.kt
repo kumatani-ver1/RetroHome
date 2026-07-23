@@ -1,13 +1,13 @@
 package com.retro.retrohome
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +36,12 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val context = LocalContext.current
+
+                    // フォント管理クラスのインスタンス化と現在のフォント取得
+                    val fontPreferences = remember { FontPreferences(context) }
+                    val currentFont by fontPreferences.currentFont.collectAsState()
+                    var showFontDialog by remember { mutableStateOf(false) }
+
                     val installedApps = InstalledAppsProvider.getInstalledApps(context)
 
                     var customLabels by remember { mutableStateOf(LabelPreferences.loadLabels(context)) }
@@ -83,6 +89,7 @@ class MainActivity : ComponentActivity() {
                     HomeScreen(
                         appSlots = displayedSlots,
                         appIcons = displayedApps,
+                        currentFont = currentFont,
                         onSlotClick = { slotIndex ->
                             val selectedApp = displayedSlots[slotIndex]
                             if (selectedApp != null) {
@@ -104,6 +111,20 @@ class MainActivity : ComponentActivity() {
                         }
                     )
 
+                    // フォント選択ダイアログを表示
+                    if (showFontDialog) {
+                        FontSelectionDialog(
+                            currentFont = currentFont,
+                            onFontSelected = { selectedFont ->
+                                fontPreferences.saveFont(selectedFont)
+                                showFontDialog = false
+                            },
+                            onDismissRequest = {
+                                showFontDialog = false
+                            }
+                        )
+                    }
+
                     actionMenuSlotIndex?.let { slotIndex ->
                         val selectedApp = displayedSlots[slotIndex]
                         if (selectedApp != null) {
@@ -120,6 +141,10 @@ class MainActivity : ComponentActivity() {
                                 onChangeIcon = {
                                     actionMenuSlotIndex = null
                                     editingIcon = selectedApp
+                                },
+                                onChangeFont = { // ★追加：フォント選択ダイアログを開く
+                                    actionMenuSlotIndex = null
+                                    showFontDialog = true
                                 },
                                 onRemove = {
                                     val newSlots = appSlots.toMutableList()

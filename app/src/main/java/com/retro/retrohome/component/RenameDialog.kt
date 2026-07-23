@@ -79,7 +79,8 @@ fun RenameDialog(
                     value = text,
                     onValueChange = { text = it },
                     label = { Text("ラベル") },
-                    singleLine = true,
+                    singleLine = false, // ★falseにして改行を許可
+                    maxLines = 2,       // ★最大2行に制限
                     modifier = Modifier.fillMaxWidth()
                 )
             }

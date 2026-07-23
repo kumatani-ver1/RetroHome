@@ -18,19 +18,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalFontFamilyResolver
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import com.retro.retrohome.AppFont
 import com.retro.retrohome.model.AppIcon
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -39,9 +45,22 @@ fun RetroAppItem(
     appIcon: AppIcon?,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    currentFont: AppFont? = null
 ) {
     val context = LocalContext.current
+    val fontFamilyResolver = LocalFontFamilyResolver.current
+
+    // 太字（FontWeight.Bold）で Typeface を解決
+    val resolvedTypeface = remember(currentFont, fontFamilyResolver) {
+        val family = currentFont?.fontFamily ?: FontFamily.Default
+        val result = fontFamilyResolver.resolve(
+            fontFamily = family,
+            fontWeight = FontWeight.Bold,
+            fontStyle = FontStyle.Normal
+        )
+        result.value as? android.graphics.Typeface
+    }
 
     Surface(
         modifier = modifier.height(64.dp),
@@ -71,7 +90,6 @@ fun RetroAppItem(
             ) {
                 if (appIcon != null) {
                     when {
-                        // 1. カスタムアイコンのUriがある場合
                         !appIcon.iconUri.isNullOrEmpty() -> {
                             val bitmap = remember(appIcon.iconUri) {
                                 try {
@@ -94,38 +112,67 @@ fun RetroAppItem(
                                 Image(
                                     bitmap = bitmap.asImageBitmap(),
                                     contentDescription = appIcon.label,
-                                    modifier = Modifier.fillMaxSize(), // ★枠いっぱいに広げる
-                                    contentScale = ContentScale.Crop   // ★比率を維持して枠を埋める
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
                                 )
                             }
                         }
-                        // 2. 通常の標準アイコンの場合
                         appIcon.icon != null -> {
                             Image(
                                 painter = rememberDrawablePainter(drawable = appIcon.icon),
                                 contentDescription = appIcon.label,
-                                modifier = Modifier.fillMaxSize(), // ★枠いっぱいに広げる
-                                contentScale = ContentScale.Crop   // ★比率を維持して枠を埋める
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
                             )
                         }
                     }
                 }
             }
 
-            // 右側：ラベル表示エリア（最大2行）
+            // 右側：ラベル表示エリア（太字＋くっきり太い白枠の袋文字）
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .weight(1f),
                 contentAlignment = Alignment.CenterStart
             ) {
-                Text(
-                    text = appIcon?.label ?: "EMPTY",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                val labelText = appIcon?.label ?: "EMPTY"
+
+                androidx.compose.foundation.Canvas(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    val fontSizePx = 16.sp.toPx()
+
+                    drawIntoCanvas { canvas ->
+                        val nativePaint = android.graphics.Paint().apply {
+                            isAntiAlias = true
+                            textSize = fontSizePx
+                            typeface = resolvedTypeface
+                            isFakeBoldText = true
+                        }
+
+                        val lines = labelText.split("\n").take(2)
+                        val lineHeight = nativePaint.fontSpacing
+
+                        val totalHeight = lineHeight * lines.size
+                        var y = (size.height - totalHeight) / 2f + nativePaint.textSize
+
+                        lines.forEach { line ->
+                            // 1. 白い外枠（STROKE）
+                            nativePaint.style = android.graphics.Paint.Style.STROKE
+                            nativePaint.strokeWidth = 4.dp.toPx() // ★白枠の太さを 3.dp -> 5.dp に強化（もっと太くしたい場合は 6.dp に）
+                            nativePaint.color = Color.White.toArgb()
+                            canvas.nativeCanvas.drawText(line, 0f, y, nativePaint)
+
+                            // 2. 黒い太文字本体（FILL）
+                            nativePaint.style = android.graphics.Paint.Style.FILL
+                            nativePaint.color = Color.Black.toArgb()
+                            canvas.nativeCanvas.drawText(line, 0f, y, nativePaint)
+
+                            y += lineHeight
+                        }
+                    }
+                }
             }
         }
     }
