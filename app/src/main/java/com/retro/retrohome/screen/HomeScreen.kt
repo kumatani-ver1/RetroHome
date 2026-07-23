@@ -1,4 +1,4 @@
-package com.retro.retrohome.ui.screen
+package com.retro.retrohome.screen
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -27,7 +27,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.retro.retrohome.model.AppIcon
-import com.retro.retrohome.ui.component.RetroAppItem
+import com.retro.retrohome.component.RetroAppItem
 import kotlin.math.roundToInt
 
 @Composable

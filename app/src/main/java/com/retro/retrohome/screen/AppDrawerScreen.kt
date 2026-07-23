@@ -1,4 +1,4 @@
-package com.retro.retrohome.ui.screen
+package com.retro.retrohome.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -16,7 +16,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import com.retro.retrohome.model.AppIcon
-import com.retro.retrohome.ui.component.IconGrid
+import com.retro.retrohome.component.IconGrid
 
 /**
  * アプリ一覧画面（画面いっぱいに全アプリを表示する）

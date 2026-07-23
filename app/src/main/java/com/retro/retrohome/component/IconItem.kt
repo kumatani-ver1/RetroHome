@@ -1,4 +1,4 @@
-package com.retro.retrohome.ui.component
+package com.retro.retrohome.component
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image

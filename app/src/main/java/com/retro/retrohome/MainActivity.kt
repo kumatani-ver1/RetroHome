@@ -1,6 +1,7 @@
 package com.retro.retrohome
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -13,12 +14,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import com.retro.retrohome.component.ActionMenuDialog
+import com.retro.retrohome.component.AppSelectDialog
+import com.retro.retrohome.component.RenameDialog
 import com.retro.retrohome.model.AppIcon
-import com.retro.retrohome.ui.component.AppSelectDialog
-import com.retro.retrohome.ui.component.RenameDialog
-import com.retro.retrohome.ui.screen.HomeScreen
+import com.retro.retrohome.screen.HomeScreen
 import com.retro.retrohome.ui.theme.RetroHomeTheme
+import com.retro.retrohome.util.IconPreferences
 import com.retro.retrohome.util.InstalledAppsProvider
+import com.retro.retrohome.util.LabelPreferences
+import com.retro.retrohome.util.SlotPreferences
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,32 +35,56 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val context = LocalContext.current // アプリ起動に使うためContextを取得
-                    val installedApps = InstalledAppsProvider.getInstalledApps(applicationContext)
+                    val context = LocalContext.current
+                    val installedApps = InstalledAppsProvider.getInstalledApps(context)
 
-                    var customLabels by remember { mutableStateOf(mapOf<String, String>()) }
+                    var customLabels by remember { mutableStateOf(LabelPreferences.loadLabels(context)) }
+                    var customIconUris by remember { mutableStateOf(IconPreferences.loadIconUris(context)) }
+
                     var editingIcon by remember { mutableStateOf<AppIcon?>(null) }
-
-                    // 10個のインベントリスロット
-                    var appSlots by remember { mutableStateOf<List<AppIcon?>>(List(10) { null }) }
-                    // 「今どの枠（何番目）のアプリを選ぼうとしているか」を記憶（nullならダイアログ非表示）
                     var selectingSlotIndex by remember { mutableStateOf<Int?>(null) }
+                    var actionMenuSlotIndex by remember { mutableStateOf<Int?>(null) }
 
+                    val savedSlotData = remember { SlotPreferences.loadSlots(context) }
+
+                    var appSlots by remember {
+                        mutableStateOf<List<AppIcon?>>(
+                            List(10) { index ->
+                                val savedPackageName = savedSlotData[index]
+                                installedApps.find { it.packageName == savedPackageName }
+                            }
+                        )
+                    }
+
+                    // ラベルとカスタムアイコンUriを適用したアプリ一覧
                     val displayedApps = installedApps.map { appIcon ->
                         val customLabel = customLabels[appIcon.packageName]
-                        if (customLabel != null) {
-                            appIcon.copy(label = customLabel)
+                        val customUri = customIconUris[appIcon.packageName]
+                        appIcon.copy(
+                            label = customLabel ?: appIcon.label,
+                            iconUri = customUri
+                        )
+                    }
+
+                    // ラベルとカスタムアイコンUriを適用したスロット一覧
+                    val displayedSlots = appSlots.map { slotApp ->
+                        if (slotApp != null) {
+                            val customLabel = customLabels[slotApp.packageName]
+                            val customUri = customIconUris[slotApp.packageName]
+                            slotApp.copy(
+                                label = customLabel ?: slotApp.label,
+                                iconUri = customUri
+                            )
                         } else {
-                            appIcon
+                            null
                         }
                     }
 
                     HomeScreen(
-                        appSlots = appSlots,
+                        appSlots = displayedSlots,
                         appIcons = displayedApps,
                         onSlotClick = { slotIndex ->
-                            // 【短押し】枠にアプリが入っていれば起動する
-                            val selectedApp = appSlots[slotIndex]
+                            val selectedApp = displayedSlots[slotIndex]
                             if (selectedApp != null) {
                                 val launchIntent = context.packageManager.getLaunchIntentForPackage(selectedApp.packageName)
                                 if (launchIntent != null) {
@@ -64,25 +93,61 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         onSlotLongClick = { slotIndex ->
-                            // 【長押し】アプリ選択ダイアログを開く
-                            selectingSlotIndex = slotIndex
+                            if (displayedSlots[slotIndex] == null) {
+                                selectingSlotIndex = slotIndex
+                            } else {
+                                actionMenuSlotIndex = slotIndex
+                            }
                         },
                         onLongClickIcon = { longPressedIcon ->
                             editingIcon = longPressedIcon
                         }
                     )
 
-                    // アプリ選択ダイアログの表示
+                    actionMenuSlotIndex?.let { slotIndex ->
+                        val selectedApp = displayedSlots[slotIndex]
+                        if (selectedApp != null) {
+                            ActionMenuDialog(
+                                appLabel = selectedApp.label,
+                                onChangeApp = {
+                                    actionMenuSlotIndex = null
+                                    selectingSlotIndex = slotIndex
+                                },
+                                onRename = {
+                                    actionMenuSlotIndex = null
+                                    editingIcon = selectedApp
+                                },
+                                onChangeIcon = {
+                                    actionMenuSlotIndex = null
+                                    editingIcon = selectedApp
+                                },
+                                onRemove = {
+                                    val newSlots = appSlots.toMutableList()
+                                    newSlots[slotIndex] = null
+                                    appSlots = newSlots
+                                    SlotPreferences.saveSlot(context, slotIndex, null)
+                                    actionMenuSlotIndex = null
+                                },
+                                onDismiss = {
+                                    actionMenuSlotIndex = null
+                                }
+                            )
+                        } else {
+                            actionMenuSlotIndex = null
+                        }
+                    }
+
                     selectingSlotIndex?.let { slotIndex ->
                         AppSelectDialog(
                             installedApps = displayedApps,
                             onAppSelected = { selectedApp ->
-                                // 選ばれたアプリを該当する枠にセットする
                                 val newSlots = appSlots.toMutableList()
-                                newSlots[slotIndex] = selectedApp
-                                appSlots = newSlots
+                                newSlots[slotIndex] = if (selectedApp != null) {
+                                    installedApps.find { it.packageName == selectedApp.packageName }
+                                } else null
 
-                                // ダイアログを閉じる
+                                appSlots = newSlots
+                                SlotPreferences.saveSlot(context, slotIndex, selectedApp?.packageName)
                                 selectingSlotIndex = null
                             },
                             onDismiss = {
@@ -91,12 +156,22 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    // 名前変更ダイアログの表示
                     editingIcon?.let { icon ->
                         RenameDialog(
                             currentLabel = icon.label,
-                            onConfirm = { newLabel ->
+                            currentIconUri = customIconUris[icon.packageName],
+                            onConfirm = { newLabel, newIconUri ->
                                 customLabels = customLabels + (icon.packageName to newLabel)
+                                LabelPreferences.saveLabel(context, icon.packageName, newLabel)
+
+                                if (newIconUri != null) {
+                                    customIconUris = customIconUris + (icon.packageName to newIconUri)
+                                    IconPreferences.saveIconUri(context, icon.packageName, newIconUri)
+                                } else {
+                                    customIconUris = customIconUris - icon.packageName
+                                    IconPreferences.saveIconUri(context, icon.packageName, null)
+                                }
+
                                 editingIcon = null
                             },
                             onDismiss = {

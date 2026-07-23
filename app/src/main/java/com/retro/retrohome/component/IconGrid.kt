@@ -1,4 +1,4 @@
-package com.retro.retrohome.ui.component
+package com.retro.retrohome.component
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
