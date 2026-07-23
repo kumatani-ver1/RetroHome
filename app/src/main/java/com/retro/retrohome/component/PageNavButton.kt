@@ -54,7 +54,7 @@ fun PageNavButton(
 
     Surface(
         modifier = modifier
-            .size(width = 64.dp, height = 48.dp)
+            .size(width = 64.dp, height = 64.dp)
             .offset { IntOffset(0, with(density) { offsetY.roundToPx() }) }
             .combinedClickable(
                 interactionSource = interactionSource,

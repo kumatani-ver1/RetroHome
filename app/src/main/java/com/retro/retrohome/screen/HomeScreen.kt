@@ -97,8 +97,9 @@ fun HomeScreen(
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
+                userScrollEnabled = false, // ★上下のスワイプ（スクロール）を無効化して固定
                 contentPadding = PaddingValues(
-                    top = 300.dp,
+                    top = 430.dp, // ★グリッドの高さ調整（数字を増やすと下がります）
                     start = 16.dp,
                     end = 16.dp,
                     bottom = 160.dp
@@ -125,7 +126,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(start = 24.dp, end = 24.dp, bottom = 100.dp),
+                .padding(start = 16.dp, end = 16.dp, bottom = 65.dp), // ★ボタンの位置調整（bottomの数字で上下）
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
