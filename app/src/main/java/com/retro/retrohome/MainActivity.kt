@@ -30,10 +30,6 @@ import com.retro.retrohome.component.RenameDialog
 import com.retro.retrohome.model.AppIcon
 import com.retro.retrohome.screen.HomeScreen
 import com.retro.retrohome.ui.theme.RetroHomeTheme
-import com.retro.retrohome.AppCustomPreferences
-import com.retro.retrohome.FontPreferences
-import com.retro.retrohome.NavButtonPreferences
-import com.retro.retrohome.util.SlotPreferences
 
 class MainActivity : ComponentActivity() {
 
