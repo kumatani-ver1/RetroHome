@@ -7,12 +7,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-// 4つのフォントを定義
+// もともとの enum class に戻し、10個すべてのフォントを定義
 enum class AppFont(val label: String, val fontResId: Int) {
     FONT_1("フォント 1", R.font.f_1),
     FONT_2("フォント 2", R.font.f_2),
     FONT_3("フォント 3", R.font.f_3),
-    FONT_4("フォント 4", R.font.f_4);
+    FONT_4("フォント 4", R.font.f_4),
+    FONT_5("フォント 5", R.font.f_5),
+    FONT_6("フォント 6", R.font.f_6),
+    FONT_7("フォント 7", R.font.f_7),
+    FONT_8("フォント 8", R.font.f_8),
+    FONT_9("フォント 9", R.font.f_9),
+    FONT_10("フォント 10", R.font.f_10);
 
     val fontFamily: FontFamily
         get() = FontFamily(Font(fontResId))

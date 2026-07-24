@@ -24,8 +24,10 @@ fun FontSelectionDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(text = "フォント選択") },
         text = {
-            LazyColumn {
-                items(AppFont.values()) { font ->
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 300.dp)
+            ) {
+                items(AppFont.entries) { font ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

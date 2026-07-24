@@ -164,7 +164,7 @@ fun AppDrawerScreen(
                 IconGrid(
                     appIcons = filteredApps,
                     onLongClickIcon = onLongClickIcon,
-                    currentFont = currentFont
+                    currentFont = null
                 )
             }
         }
