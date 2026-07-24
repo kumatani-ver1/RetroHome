@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -32,10 +33,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFontFamilyResolver
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.retro.retrohome.AppFont
 import com.retro.retrohome.component.PageNavButton
 import com.retro.retrohome.component.RetroAppItem
@@ -72,6 +82,18 @@ fun HomeScreen(
         label = "drawerOpenProgress"
     )
 
+    // ラベル（RetroAppItem）と同じフォント解像度の仕組み
+    val fontFamilyResolver = LocalFontFamilyResolver.current
+    val resolvedTypeface = remember(currentFont, fontFamilyResolver) {
+        val family = currentFont.fontFamily
+        val result = fontFamilyResolver.resolve(
+            fontFamily = family,
+            fontWeight = FontWeight.Bold,
+            fontStyle = FontStyle.Normal
+        )
+        result.value as? android.graphics.Typeface
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -97,9 +119,9 @@ fun HomeScreen(
 
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                userScrollEnabled = false, // ★上下のスワイプ（スクロール）を無効化して固定
+                userScrollEnabled = false,
                 contentPadding = PaddingValues(
-                    top = 430.dp, // ★グリッドの高さ調整（数字を増やすと下がります）
+                    top = 430.dp,
                     start = 16.dp,
                     end = 16.dp,
                     bottom = 160.dp
@@ -121,12 +143,12 @@ fun HomeScreen(
             }
         }
 
-        // 左右のページ送りボタン
+        // 左右のページ送りボタン ＆ 中央のページ番号（袋文字）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .padding(start = 16.dp, end = 16.dp, bottom = 65.dp), // ★ボタンの位置調整（bottomの数字で上下）
+                .padding(start = 16.dp, end = 16.dp, bottom = 65.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -144,6 +166,44 @@ fun HomeScreen(
                 },
                 onLongClick = onLeftButtonLongClick
             )
+
+            // 中央：ページ番号表示エリア（RetroAppItemと同様の袋文字描画）
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(64.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                val pageText = "${currentPage + 1} / $totalPages"
+
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val fontSizePx = 18.sp.toPx()
+
+                    drawIntoCanvas { canvas ->
+                        val nativePaint = android.graphics.Paint().apply {
+                            isAntiAlias = true
+                            textSize = fontSizePx
+                            typeface = resolvedTypeface
+                            isFakeBoldText = true
+                            textAlign = android.graphics.Paint.Align.CENTER
+                        }
+
+                        val x = size.width / 2f
+                        val y = size.height / 2f - (nativePaint.descent() + nativePaint.ascent()) / 2f
+
+                        // 1. 白い外枠（STROKE）
+                        nativePaint.style = android.graphics.Paint.Style.STROKE
+                        nativePaint.strokeWidth = 4.dp.toPx()
+                        nativePaint.color = Color.White.toArgb()
+                        canvas.nativeCanvas.drawText(pageText, x, y, nativePaint)
+
+                        // 2. 黒い太文字本体（FILL）
+                        nativePaint.style = android.graphics.Paint.Style.FILL
+                        nativePaint.color = Color.Black.toArgb()
+                        canvas.nativeCanvas.drawText(pageText, x, y, nativePaint)
+                    }
+                }
+            }
 
             // 右ボタン
             PageNavButton(
@@ -197,7 +257,8 @@ fun HomeScreen(
                 onDragEnd = {
                     openProgress = if (openProgress > 0.5f) 1f else 0f
                 },
-                onLongClickIcon = onLongClickIcon
+                onLongClickIcon = onLongClickIcon,
+                currentFont = currentFont // ★ 修正：ドロワーにも選択中のフォントを渡す
             )
         }
     }

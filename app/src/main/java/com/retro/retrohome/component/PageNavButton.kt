@@ -49,6 +49,11 @@ fun PageNavButton(
         label = "buttonPressAnimation"
     )
 
+    // ★押している間だけ #2E8BC0 に変える
+    val activeColor = Color(0xFF2E8BC0)
+    val borderColor = if (isPressed) activeColor else Color.White
+    val textColor = if (isPressed) activeColor else Color.White
+
     val density = LocalDensity.current
     val context = LocalContext.current
 
@@ -63,8 +68,8 @@ fun PageNavButton(
                 onLongClick = onLongClick
             ),
         color = Color.Black,
-        shape = RoundedCornerShape(0.dp),
-        border = BorderStroke(2.dp, Color.White)
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(2.dp, borderColor)
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -84,7 +89,7 @@ fun PageNavButton(
             } else {
                 Text(
                     text = text,
-                    color = Color.White,
+                    color = textColor,
                     fontSize = 20.sp
                 )
             }

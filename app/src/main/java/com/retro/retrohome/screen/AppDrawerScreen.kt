@@ -3,6 +3,9 @@ package com.retro.retrohome.screen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,9 +17,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Velocity
-import com.retro.retrohome.model.AppIcon
+import com.retro.retrohome.AppFont
 import com.retro.retrohome.component.IconGrid
+import com.retro.retrohome.model.AppIcon
 
 /**
  * アプリ一覧画面（画面いっぱいに全アプリを表示する）
@@ -31,7 +36,8 @@ fun AppDrawerScreen(
     onDrag: (Float) -> Unit,
     onDragEnd: () -> Unit,
     onLongClickIcon: (AppIcon) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    currentFont: AppFont? = null
 ) {
     // 画面がどれくらい下に引っ張られているかを記憶する変数
     var dragOffset by remember { mutableFloatStateOf(0f) }
@@ -88,9 +94,16 @@ fun AppDrawerScreen(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()     // 上部のステータスバー領域を回避
+            .navigationBarsPadding() // 下部のナビゲーションバー領域を回避
+            .padding(top = 16.dp, bottom = 16.dp) // 上下にさらに余白を追加して縦幅を調整（値は変更可能）
             // この1行で IconGrid のスクロール状態を監視して、自動でドラッグを制御します
             .nestedScroll(nestedScrollConnection)
     ) {
-        IconGrid(appIcons = appIcons, onLongClickIcon = onLongClickIcon)
+        IconGrid(
+            appIcons = appIcons,
+            onLongClickIcon = onLongClickIcon,
+            currentFont = currentFont
+        )
     }
 }

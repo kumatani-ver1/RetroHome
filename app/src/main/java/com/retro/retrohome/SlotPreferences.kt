@@ -19,6 +19,7 @@ class SlotPreferences(context: Context) {
             if (app != null) {
                 jsonObject.put("packageName", app.packageName)
                 jsonObject.put("label", app.label)
+                jsonObject.put("iconUri", app.iconUri) // ★ 追加：カスタムアイコンのURIをJSONに保存
             }
             jsonArray.put(jsonObject)
         }
@@ -41,14 +42,17 @@ class SlotPreferences(context: Context) {
                 val jsonObject = jsonArray.optJSONObject(i) ?: continue
                 val packageName = jsonObject.optString("packageName", "")
                 val savedLabel = jsonObject.optString("label", "")
+                val savedIconUri = jsonObject.optString("iconUri", "").takeIf { it.isNotEmpty() } // ★ 追加：保存された iconUri を読み出す
 
                 if (packageName.isNotEmpty()) {
                     val originalApp = appMap[packageName]
                     if (originalApp != null) {
-                        // アイコン画像は PackageManager から復元した originalApp のものを使い、
-                        // ラベルは保存されているカスタムラベル（変更後）を適用
                         val labelToUse = if (savedLabel.isNotEmpty()) savedLabel else originalApp.label
-                        result[i] = originalApp.copy(label = labelToUse)
+                        // ★ 修正：label だけでなく iconUri も適用して復元する
+                        result[i] = originalApp.copy(
+                            label = labelToUse,
+                            iconUri = savedIconUri
+                        )
                     }
                 }
             }

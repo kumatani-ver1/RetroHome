@@ -1,6 +1,9 @@
 package com.retro.retrohome.component
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.ImageDecoder
+import android.graphics.drawable.AdaptiveIconDrawable
 import android.os.Build
 import android.provider.MediaStore
 import androidx.compose.foundation.BorderStroke
@@ -8,6 +11,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -19,9 +24,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -35,7 +42,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.retro.retrohome.AppFont
 import com.retro.retrohome.model.AppIcon
 
@@ -51,6 +57,15 @@ fun RetroAppItem(
     val context = LocalContext.current
     val fontFamilyResolver = LocalFontFamilyResolver.current
 
+    // 押し込み判定用の State
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    // 押している間だけ #2E8BC0 に変える
+    val activeColor = Color(0xFF2E8BC0)
+    val borderColor = if (isPressed) activeColor else Color.White
+    val strokeColor = if (isPressed) activeColor else Color.White
+
     // 太字（FontWeight.Bold）で Typeface を解決
     val resolvedTypeface = remember(currentFont, fontFamilyResolver) {
         val family = currentFont?.fontFamily ?: FontFamily.Default
@@ -62,17 +77,65 @@ fun RetroAppItem(
         result.value as? android.graphics.Typeface
     }
 
+    // アイコン画像（カスタムURIまたはデフォルトDrawable）の読み込み＆加工処理
+    val displayBitmap = remember(appIcon?.iconUri, appIcon?.icon) {
+        if (appIcon == null) return@remember null
+
+        // 1. カスタム画像 URI が設定されている場合、読み込みを試みる
+        if (!appIcon.iconUri.isNullOrEmpty()) {
+            try {
+                val uri = android.net.Uri.parse(appIcon.iconUri)
+                val loaded = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    val source = ImageDecoder.createSource(context.contentResolver, uri)
+                    ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
+                        decoder.isMutableRequired = true
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                }
+                if (loaded != null) return@remember loaded
+            } catch (e: Exception) {
+                // URI読み込み失敗時は下のデフォルトアイコン表示へフォールバック
+            }
+        }
+
+        // 2. カスタム画像がない（または読み込み失敗）場合、デフォルトアイコンを描画
+        val drawable = appIcon.icon ?: return@remember null
+        val sizePx = (52 * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && drawable is AdaptiveIconDrawable) {
+            // AdaptiveIconDrawable の円形マスクを解体し、四角形として合成描画する
+            drawable.background?.let { bg ->
+                bg.setBounds(0, 0, sizePx, sizePx)
+                bg.draw(canvas)
+            }
+            drawable.foreground?.let { fg ->
+                fg.setBounds(0, 0, sizePx, sizePx)
+                fg.draw(canvas)
+            }
+        } else {
+            drawable.setBounds(0, 0, sizePx, sizePx)
+            drawable.draw(canvas)
+        }
+        bitmap
+    }
+
     Surface(
         modifier = modifier.height(64.dp),
         color = Color.Black,
-        shape = RoundedCornerShape(0.dp),
-        border = BorderStroke(2.dp, Color.White),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(2.dp, borderColor),
         tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication = null,
                     onClick = onClick,
                     onLongClick = onLongClick
                 )
@@ -85,47 +148,17 @@ fun RetroAppItem(
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(52.dp)
+                    .clip(RoundedCornerShape(5.dp))
                     .background(Color.DarkGray),
                 contentAlignment = Alignment.Center
             ) {
-                if (appIcon != null) {
-                    when {
-                        !appIcon.iconUri.isNullOrEmpty() -> {
-                            val bitmap = remember(appIcon.iconUri) {
-                                try {
-                                    val uri = android.net.Uri.parse(appIcon.iconUri)
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                                        val source = ImageDecoder.createSource(context.contentResolver, uri)
-                                        ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
-                                            decoder.isMutableRequired = true
-                                        }
-                                    } else {
-                                        @Suppress("DEPRECATION")
-                                        MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
-                                    }
-                                } catch (e: Exception) {
-                                    null
-                                }
-                            }
-
-                            if (bitmap != null) {
-                                Image(
-                                    bitmap = bitmap.asImageBitmap(),
-                                    contentDescription = appIcon.label,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                        }
-                        appIcon.icon != null -> {
-                            Image(
-                                painter = rememberDrawablePainter(drawable = appIcon.icon),
-                                contentDescription = appIcon.label,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        }
-                    }
+                if (displayBitmap != null) {
+                    Image(
+                        bitmap = displayBitmap.asImageBitmap(),
+                        contentDescription = appIcon?.label,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
                 }
             }
 
@@ -158,10 +191,10 @@ fun RetroAppItem(
                         var y = (size.height - totalHeight) / 2f + nativePaint.textSize
 
                         lines.forEach { line ->
-                            // 1. 白い外枠（STROKE）
+                            // 1. 外枠（STROKE）
                             nativePaint.style = android.graphics.Paint.Style.STROKE
-                            nativePaint.strokeWidth = 4.dp.toPx() // ★白枠の太さを 3.dp -> 5.dp に強化（もっと太くしたい場合は 6.dp に）
-                            nativePaint.color = Color.White.toArgb()
+                            nativePaint.strokeWidth = 4.dp.toPx()
+                            nativePaint.color = strokeColor.toArgb()
                             canvas.nativeCanvas.drawText(line, 0f, y, nativePaint)
 
                             // 2. 黒い太文字本体（FILL）

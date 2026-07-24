@@ -2,6 +2,7 @@ package com.retro.retrohome
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
@@ -29,15 +30,18 @@ import com.retro.retrohome.component.RenameDialog
 import com.retro.retrohome.model.AppIcon
 import com.retro.retrohome.screen.HomeScreen
 import com.retro.retrohome.ui.theme.RetroHomeTheme
+import com.retro.retrohome.AppCustomPreferences
+import com.retro.retrohome.FontPreferences
+import com.retro.retrohome.NavButtonPreferences
+import com.retro.retrohome.util.SlotPreferences
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ★追加：システムバー（ナビゲーションバー・ステータスバー）の色設定
-        window.navigationBarColor = android.graphics.Color.BLACK
-        // アイコンを白く表示（ダークモード対応）
+        // システムバー（ナビゲーションバー・ステータスバー）の色設定
+        window.navigationBarColor = Color.BLACK
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
         insetsController.isAppearanceLightNavigationBars = false
 
@@ -47,7 +51,9 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val installedApps = remember { getInstalledApps() }
+                    val customPrefs = remember { AppCustomPreferences(this) }
+                    val initialApps = remember { getInstalledApps(customPrefs) }
+                    val installedApps = remember { mutableStateListOf<AppIcon>().apply { addAll(initialApps) } }
 
                     val slotPreferences = remember { SlotPreferences(this) }
                     val navButtonPreferences = remember { NavButtonPreferences(this) }
@@ -95,6 +101,9 @@ class MainActivity : ComponentActivity() {
                     var showActionMenuDialog by remember { mutableStateOf(false) }
                     var showRenameDialog by remember { mutableStateOf(false) }
 
+                    var selectedDrawerApp by remember { mutableStateOf<AppIcon?>(null) }
+                    var showDrawerRenameDialog by remember { mutableStateOf(false) }
+
                     HomeScreen(
                         appSlots = appSlots,
                         appIcons = installedApps,
@@ -114,7 +123,10 @@ class MainActivity : ComponentActivity() {
                             selectedSlotIndex = index
                             showActionMenuDialog = true
                         },
-                        onLongClickIcon = { app -> },
+                        onLongClickIcon = { app ->
+                            selectedDrawerApp = app
+                            showDrawerRenameDialog = true
+                        },
                         onLeftButtonLongClick = {
                             selectingForLeftButton = true
                             showNavButtonDialog = true
@@ -125,6 +137,7 @@ class MainActivity : ComponentActivity() {
                         }
                     )
 
+                    // ナビボタンの画像変更ダイアログ
                     if (showNavButtonDialog) {
                         AlertDialog(
                             onDismissRequest = { showNavButtonDialog = false },
@@ -159,6 +172,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // 空きスロット選択時のアプリ割り当てダイアログ
                     if (showAppSelectDialog) {
                         AppSelectDialog(
                             installedApps = installedApps,
@@ -173,6 +187,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // ホームスロット長押し時のアクションメニュー
                     if (showActionMenuDialog) {
                         ActionMenuDialog(
                             appLabel = appSlots.getOrNull(selectedSlotIndex)?.label ?: "",
@@ -203,15 +218,43 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // ホーム画面のスロット用リネームダイアログ
                     if (showRenameDialog) {
                         val currentApp = appSlots.getOrNull(selectedSlotIndex)
                         RenameDialog(
                             currentLabel = currentApp?.label ?: "",
-                            currentIconUri = null,
+                            currentIconUri = currentApp?.iconUri,
                             onConfirm = { newLabel, newIconUri ->
                                 if (selectedSlotIndex in appSlots.indices && currentApp != null) {
-                                    appSlots[selectedSlotIndex] = currentApp.copy(label = newLabel)
+                                    if (!newIconUri.isNullOrEmpty()) {
+                                        try {
+                                            contentResolver.takePersistableUriPermission(
+                                                Uri.parse(newIconUri),
+                                                Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                            )
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    }
+
+                                    val updatedApp = currentApp.copy(
+                                        label = newLabel,
+                                        iconUri = newIconUri
+                                    )
+
+                                    // ホーム画面を更新＆保存
+                                    appSlots[selectedSlotIndex] = updatedApp
                                     slotPreferences.saveSlots(appSlots)
+
+                                    // カスタム情報を保存
+                                    customPrefs.saveLabel(currentApp.packageName, newLabel)
+                                    customPrefs.saveIconUri(currentApp.packageName, newIconUri)
+
+                                    // ドロワー（アプリ一覧）側も連動更新
+                                    val drawerIndex = installedApps.indexOfFirst { it.packageName == currentApp.packageName }
+                                    if (drawerIndex != -1) {
+                                        installedApps[drawerIndex] = updatedApp
+                                    }
                                 }
                                 showRenameDialog = false
                             },
@@ -219,6 +262,58 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // ドロワー（アプリ一覧）用リネームダイアログ
+                    if (showDrawerRenameDialog && selectedDrawerApp != null) {
+                        val targetApp = selectedDrawerApp!!
+                        RenameDialog(
+                            currentLabel = targetApp.label,
+                            currentIconUri = targetApp.iconUri,
+                            onConfirm = { newLabel, newIconUri ->
+                                if (!newIconUri.isNullOrEmpty()) {
+                                    try {
+                                        contentResolver.takePersistableUriPermission(
+                                            Uri.parse(newIconUri),
+                                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                        )
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+
+                                // 1. Preferences に保存
+                                customPrefs.saveLabel(targetApp.packageName, newLabel)
+                                customPrefs.saveIconUri(targetApp.packageName, newIconUri)
+
+                                val updatedApp = targetApp.copy(
+                                    label = newLabel,
+                                    iconUri = newIconUri
+                                )
+
+                                // 2. ドロワー一覧（installedApps）を更新
+                                val drawerIndex = installedApps.indexOfFirst { it.packageName == targetApp.packageName }
+                                if (drawerIndex != -1) {
+                                    installedApps[drawerIndex] = updatedApp
+                                }
+
+                                // 3. ホーム画面に配置されている同じアプリも連動更新して保存
+                                appSlots.indices.forEach { i ->
+                                    if (appSlots[i]?.packageName == targetApp.packageName) {
+                                        appSlots[i] = updatedApp
+                                    }
+                                }
+                                slotPreferences.saveSlots(appSlots)
+
+                                showDrawerRenameDialog = false
+                                selectedDrawerApp = null
+                            },
+                            onDismiss = {
+                                showDrawerRenameDialog = false
+                                selectedDrawerApp = null
+                            }
+                        )
+                    }
+
+                    // フォント選択ダイアログ
                     if (showFontDialog) {
                         FontSelectionDialog(
                             currentFont = currentFont,
@@ -235,7 +330,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun getInstalledApps(): List<AppIcon> {
+    // アプリ取得時に保存されたカスタム情報を読み出す
+    private fun getInstalledApps(customPrefs: AppCustomPreferences): List<AppIcon> {
         val pm = packageManager
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
@@ -246,9 +342,18 @@ class MainActivity : ComponentActivity() {
             val packageName = info.activityInfo.packageName
             if (packageName == this.packageName) return@mapNotNull null
 
-            val label = info.loadLabel(pm).toString()
+            val originalLabel = info.loadLabel(pm).toString()
             val icon = info.loadIcon(pm)
-            AppIcon(packageName = packageName, label = label, icon = icon)
+
+            val label = customPrefs.getLabel(packageName, originalLabel)
+            val iconUri = customPrefs.getIconUri(packageName)
+
+            AppIcon(
+                packageName = packageName,
+                label = label,
+                icon = icon,
+                iconUri = iconUri
+            )
         }.sortedBy { it.label }
     }
 

@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.retro.retrohome.AppFont
 import com.retro.retrohome.model.AppIcon
 
 /**
@@ -24,7 +25,8 @@ fun IconGrid(
     appIcons: List<AppIcon>,
     onLongClickIcon: (AppIcon) -> Unit,
     modifier: Modifier = Modifier,
-    topPadding: Dp = 0.dp
+    topPadding: Dp = 0.dp,
+    currentFont: AppFont? = null // ★ 追加：フォント設定を受け取る
 ) {
     val context = LocalContext.current
 
@@ -43,7 +45,8 @@ fun IconGrid(
                         context.startActivity(launchIntent)
                     }
                 },
-                onLongClick = onLongClickIcon
+                onLongClick = onLongClickIcon,
+                currentFont = currentFont // ★ 修正：IconItem にフォントを渡す
             )
         }
     }
