@@ -9,7 +9,6 @@ import android.provider.MediaStore
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -148,8 +147,7 @@ fun RetroAppItem(
                 modifier = Modifier
                     .fillMaxHeight()
                     .width(52.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(Color.DarkGray),
+                    .clip(RoundedCornerShape(5.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 if (displayBitmap != null) {
@@ -185,22 +183,23 @@ fun RetroAppItem(
                         }
 
                         val lines = labelText.split("\n").take(2)
-                        val lineHeight = nativePaint.fontSpacing
+                        val lineHeight = nativePaint.fontSpacing + 5.dp.toPx()
 
                         val totalHeight = lineHeight * lines.size
                         var y = (size.height - totalHeight) / 2f + nativePaint.textSize
+                        val x = 5.dp.toPx()
 
                         lines.forEach { line ->
                             // 1. 外枠（STROKE）
                             nativePaint.style = android.graphics.Paint.Style.STROKE
                             nativePaint.strokeWidth = 4.dp.toPx()
                             nativePaint.color = strokeColor.toArgb()
-                            canvas.nativeCanvas.drawText(line, 0f, y, nativePaint)
+                            canvas.nativeCanvas.drawText(line, x, y, nativePaint)
 
                             // 2. 黒い太文字本体（FILL）
                             nativePaint.style = android.graphics.Paint.Style.FILL
                             nativePaint.color = Color.Black.toArgb()
-                            canvas.nativeCanvas.drawText(line, 0f, y, nativePaint)
+                            canvas.nativeCanvas.drawText(line, x, y, nativePaint)
 
                             y += lineHeight
                         }

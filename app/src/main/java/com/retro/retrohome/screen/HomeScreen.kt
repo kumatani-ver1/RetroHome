@@ -121,13 +121,13 @@ fun HomeScreen(
                 columns = GridCells.Fixed(2),
                 userScrollEnabled = false,
                 contentPadding = PaddingValues(
-                    top = 430.dp,
+                    top = 400.dp,
                     start = 16.dp,
                     end = 16.dp,
                     bottom = 160.dp
                 ),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(15.dp),
+                verticalArrangement = Arrangement.spacedBy(15.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(slotsPerPage) { indexOnPage ->
@@ -258,7 +258,7 @@ fun HomeScreen(
                     openProgress = if (openProgress > 0.5f) 1f else 0f
                 },
                 onLongClickIcon = onLongClickIcon,
-                currentFont = currentFont // ★ 修正：ドロワーにも選択中のフォントを渡す
+                currentFont = currentFont
             )
         }
     }
