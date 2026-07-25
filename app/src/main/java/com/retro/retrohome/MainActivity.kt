@@ -27,6 +27,9 @@ import androidx.core.view.WindowCompat
 import com.retro.retrohome.component.ActionMenuDialog
 import com.retro.retrohome.component.AppSelectDialog
 import com.retro.retrohome.component.IntervalSettingDialog
+import com.retro.retrohome.component.LocationSearchDialog
+import com.retro.retrohome.WeatherLocation
+import com.retro.retrohome.WeatherPreferences
 import com.retro.retrohome.component.RenameDialog
 import com.retro.retrohome.model.AppIcon
 import com.retro.retrohome.screen.HomeScreen
@@ -97,6 +100,9 @@ class MainActivity : ComponentActivity() {
                     var photoWidgetFolderUri by remember { mutableStateOf(photoWidgetPreferences.folderUri.value) }
                     var photoWidgetIntervalSeconds by remember { mutableStateOf(photoWidgetPreferences.intervalSeconds.value) }
                     var showPhotoIntervalDialog by remember { mutableStateOf(false) }
+                    val weatherPreferences = remember { WeatherPreferences(this) }
+                    var weatherLocation by remember { mutableStateOf(weatherPreferences.location.value) }
+                    var showLocationSearchDialog by remember { mutableStateOf(false) }
                     val photoFolderPickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.OpenDocumentTree()
                     ) { uri: Uri? ->
@@ -132,6 +138,9 @@ class MainActivity : ComponentActivity() {
                         onRequestPhotoFolderPicker = { photoFolderPickerLauncher.launch(null) },
                         onRequestPhotoIntervalSetting = { showPhotoIntervalDialog = true },
                         photoWidgetIntervalSeconds = photoWidgetIntervalSeconds,
+                        weatherLatitude = weatherLocation?.latitude,
+                        weatherLongitude = weatherLocation?.longitude,
+                        onRequestLocationPicker = { showLocationSearchDialog = true },
 
                         onSlotClick = { index ->
                             val app = appSlots.getOrNull(index)
@@ -159,6 +168,19 @@ class MainActivity : ComponentActivity() {
                             showNavButtonDialog = true
                         }
                     )
+
+                    // 天気予報の地域選択ダイアログ
+                    if (showLocationSearchDialog) {
+                        LocationSearchDialog(
+                            onLocationSelected = { name, lat, lon ->
+                                val newLocation = WeatherLocation(name, lat, lon)
+                                weatherPreferences.saveLocation(newLocation)
+                                weatherLocation = newLocation
+                                showLocationSearchDialog = false
+                            },
+                            onDismiss = { showLocationSearchDialog = false }
+                        )
+                    }
 
 // 画像ウィジェットの間隔設定ダイアログ
                     if (showPhotoIntervalDialog) {

@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.retro.retrohome.AppFont
 import com.retro.retrohome.component.PageNavButton
 import com.retro.retrohome.component.PhotoWidget
+import com.retro.retrohome.component.WeatherWidget
 import com.retro.retrohome.component.RetroAppItem
 import com.retro.retrohome.model.AppIcon
 import kotlin.math.roundToInt
@@ -72,7 +73,10 @@ fun HomeScreen(
     photoWidgetFolderUri: Uri? = null,
     onRequestPhotoFolderPicker: () -> Unit = {},
     photoWidgetIntervalSeconds: Int = 30,
-    onRequestPhotoIntervalSetting: () -> Unit = {}
+    onRequestPhotoIntervalSetting: () -> Unit = {},
+    weatherLatitude: Double? = null,
+    weatherLongitude: Double? = null,
+    onRequestLocationPicker: () -> Unit = {}
 ) {
     var openProgress by remember { mutableFloatStateOf(0f) }
     var currentPage by remember { mutableIntStateOf(0) }
@@ -158,6 +162,16 @@ fun HomeScreen(
                 .align(Alignment.TopCenter)
                 .offset(y = 60.dp),
             onLongClick = onRequestPhotoIntervalSetting        )
+
+        // 天気予報ウィジェット（画像ウィジェットの下に固定表示）
+        WeatherWidget(
+            latitude = weatherLatitude,
+            longitude = weatherLongitude,
+            onRequestLocationPicker = onRequestLocationPicker,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = 320.dp)
+        )
 
         // 左右のページ送りボタン ＆ 中央のページ番号（袋文字）
         Row(
