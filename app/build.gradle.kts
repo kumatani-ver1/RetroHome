@@ -51,4 +51,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation("com.google.accompanist:accompanist-drawablepainter:0.36.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.documentfile:documentfile:1.0.1")
 }

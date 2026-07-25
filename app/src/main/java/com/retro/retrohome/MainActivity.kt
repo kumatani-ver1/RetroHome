@@ -26,10 +26,12 @@ import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import com.retro.retrohome.component.ActionMenuDialog
 import com.retro.retrohome.component.AppSelectDialog
+import com.retro.retrohome.component.IntervalSettingDialog
 import com.retro.retrohome.component.RenameDialog
 import com.retro.retrohome.model.AppIcon
 import com.retro.retrohome.screen.HomeScreen
 import com.retro.retrohome.ui.theme.RetroHomeTheme
+import com.retro.retrohome.PhotoWidgetPreferences
 
 class MainActivity : ComponentActivity() {
 
@@ -91,6 +93,26 @@ class MainActivity : ComponentActivity() {
                     val fontPreferences = remember { FontPreferences(this) }
                     var currentFont by remember { mutableStateOf(fontPreferences.currentFont.value) }
                     var showFontDialog by remember { mutableStateOf(false) }
+                    val photoWidgetPreferences = remember { PhotoWidgetPreferences(this) }
+                    var photoWidgetFolderUri by remember { mutableStateOf(photoWidgetPreferences.folderUri.value) }
+                    var photoWidgetIntervalSeconds by remember { mutableStateOf(photoWidgetPreferences.intervalSeconds.value) }
+                    var showPhotoIntervalDialog by remember { mutableStateOf(false) }
+                    val photoFolderPickerLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocumentTree()
+                    ) { uri: Uri? ->
+                        uri?.let {
+                            try {
+                                contentResolver.takePersistableUriPermission(
+                                    it,
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                )
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                            photoWidgetPreferences.saveFolderUri(it)
+                            photoWidgetFolderUri = it
+                        }
+                    }
 
                     var selectedSlotIndex by remember { mutableIntStateOf(-1) }
                     var showAppSelectDialog by remember { mutableStateOf(false) }
@@ -106,6 +128,11 @@ class MainActivity : ComponentActivity() {
                         currentFont = currentFont,
                         leftIconUri = leftButtonIconUri,
                         rightIconUri = rightButtonIconUri,
+                       photoWidgetFolderUri = photoWidgetFolderUri,
+                        onRequestPhotoFolderPicker = { photoFolderPickerLauncher.launch(null) },
+                        onRequestPhotoIntervalSetting = { showPhotoIntervalDialog = true },
+                        photoWidgetIntervalSeconds = photoWidgetIntervalSeconds,
+
                         onSlotClick = { index ->
                             val app = appSlots.getOrNull(index)
                             if (app != null) {
@@ -133,6 +160,30 @@ class MainActivity : ComponentActivity() {
                         }
                     )
 
+// 画像ウィジェットの間隔設定ダイアログ
+                    if (showPhotoIntervalDialog) {
+                        IntervalSettingDialog(
+                            currentTotalSeconds = photoWidgetIntervalSeconds,
+                            onConfirm = { seconds ->
+                                photoWidgetPreferences.saveIntervalSeconds(seconds)
+                                photoWidgetIntervalSeconds = seconds
+                                showPhotoIntervalDialog = false
+                            },
+                            onDismiss = { showPhotoIntervalDialog = false }
+                        )
+                    }
+// 画像ウィジェットの間隔設定ダイアログ
+                    if (showPhotoIntervalDialog) {
+                        IntervalSettingDialog(
+                            currentTotalSeconds = photoWidgetIntervalSeconds,
+                            onConfirm = { seconds ->
+                                photoWidgetPreferences.saveIntervalSeconds(seconds)
+                                photoWidgetIntervalSeconds = seconds
+                                showPhotoIntervalDialog = false
+                            },
+                            onDismiss = { showPhotoIntervalDialog = false }
+                        )
+                    }
                     // ナビボタンの画像変更ダイアログ
                     if (showNavButtonDialog) {
                         AlertDialog(

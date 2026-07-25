@@ -1,5 +1,6 @@
 package com.retro.retrohome.screen
 
+import android.net.Uri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.retro.retrohome.AppFont
 import com.retro.retrohome.component.PageNavButton
+import com.retro.retrohome.component.PhotoWidget
 import com.retro.retrohome.component.RetroAppItem
 import com.retro.retrohome.model.AppIcon
 import kotlin.math.roundToInt
@@ -66,7 +68,11 @@ fun HomeScreen(
     leftIconUri: String? = null,
     rightIconUri: String? = null,
     onLeftButtonLongClick: () -> Unit = {},
-    onRightButtonLongClick: () -> Unit = {}
+    onRightButtonLongClick: () -> Unit = {},
+    photoWidgetFolderUri: Uri? = null,
+    onRequestPhotoFolderPicker: () -> Unit = {},
+    photoWidgetIntervalSeconds: Int = 30,
+    onRequestPhotoIntervalSetting: () -> Unit = {}
 ) {
     var openProgress by remember { mutableFloatStateOf(0f) }
     var currentPage by remember { mutableIntStateOf(0) }
@@ -142,6 +148,16 @@ fun HomeScreen(
                 }
             }
         }
+
+        // 画像ウィジェット（ページ遷移の対象外＝AnimatedContentの外に置くことで固定表示にする）
+        PhotoWidget(
+            folderUri = photoWidgetFolderUri,
+            onRequestFolderPicker = onRequestPhotoFolderPicker,
+            intervalSeconds = photoWidgetIntervalSeconds,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = 60.dp),
+            onLongClick = onRequestPhotoIntervalSetting        )
 
         // 左右のページ送りボタン ＆ 中央のページ番号（袋文字）
         Row(
