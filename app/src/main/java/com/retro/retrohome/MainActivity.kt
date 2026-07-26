@@ -2,6 +2,10 @@ package com.retro.retrohome
 
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import androidx.compose.runtime.DisposableEffect
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
@@ -25,18 +29,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import com.retro.retrohome.component.ActionMenuDialog
+import com.retro.retrohome.component.DrawerActionMenuDialog
+import com.retro.retrohome.component.FolderSelectDialog
+import com.retro.retrohome.component.FolderContentsDialog
 import com.retro.retrohome.component.AppSelectDialog
 import com.retro.retrohome.component.IntervalSettingDialog
 import com.retro.retrohome.component.LocationSearchDialog
-import com.retro.retrohome.WeatherLocation
-import com.retro.retrohome.WeatherPreferences
 import com.retro.retrohome.component.RenameDialog
 import com.retro.retrohome.model.AppIcon
 import com.retro.retrohome.screen.HomeScreen
 import com.retro.retrohome.ui.theme.RetroHomeTheme
-import com.retro.retrohome.PhotoWidgetPreferences
 
 class MainActivity : ComponentActivity() {
+
+    private var onHomeButtonPressed: (() -> Unit)? = null
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        onHomeButtonPressed?.invoke()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,7 +66,26 @@ class MainActivity : ComponentActivity() {
                     val customPrefs = remember { AppCustomPreferences(this) }
                     val initialApps = remember { getInstalledApps(customPrefs) }
                     val installedApps = remember { mutableStateListOf<AppIcon>().apply { addAll(initialApps) } }
-
+// アプリのインストール・アンインストールを検知して一覧を自動更新
+                    DisposableEffect(Unit) {
+                        val receiver = object : BroadcastReceiver() {
+                            override fun onReceive(context: Context, intent: Intent) {
+                                val refreshedApps = getInstalledApps(customPrefs)
+                                installedApps.clear()
+                                installedApps.addAll(refreshedApps)
+                            }
+                        }
+                        val filter = IntentFilter().apply {
+                            addAction(Intent.ACTION_PACKAGE_ADDED)
+                            addAction(Intent.ACTION_PACKAGE_REMOVED)
+                            addAction(Intent.ACTION_PACKAGE_REPLACED)
+                            addDataScheme("package")
+                        }
+                        registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                        onDispose {
+                            unregisterReceiver(receiver)
+                        }
+                    }
                     val slotPreferences = remember { SlotPreferences(this) }
                     val navButtonPreferences = remember { NavButtonPreferences(this) }
 
@@ -96,13 +126,42 @@ class MainActivity : ComponentActivity() {
                     val fontPreferences = remember { FontPreferences(this) }
                     var currentFont by remember { mutableStateOf(fontPreferences.currentFont.value) }
                     var showFontDialog by remember { mutableStateOf(false) }
+
                     val photoWidgetPreferences = remember { PhotoWidgetPreferences(this) }
                     var photoWidgetFolderUri by remember { mutableStateOf(photoWidgetPreferences.folderUri.value) }
                     var photoWidgetIntervalSeconds by remember { mutableStateOf(photoWidgetPreferences.intervalSeconds.value) }
                     var showPhotoIntervalDialog by remember { mutableStateOf(false) }
+
                     val weatherPreferences = remember { WeatherPreferences(this) }
                     var weatherLocation by remember { mutableStateOf(weatherPreferences.location.value) }
                     var showLocationSearchDialog by remember { mutableStateOf(false) }
+
+                    // メッセージウィジェット用：選択済みフォルダ・間隔の読込＆各種ダイアログの状態
+                    val messageWidgetPreferences = remember { MessageWidgetPreferences(this) }
+                    var messageWidgetFolderUri by remember { mutableStateOf(messageWidgetPreferences.folderUri.value) }
+                    var messageWidgetIntervalSeconds by remember { mutableStateOf(messageWidgetPreferences.intervalSeconds.value) }
+                    var showMessageIntervalDialog by remember { mutableStateOf(false) }
+
+                    // 設定のバックアップ／復元
+                    var showSettingsMenuDialog by remember { mutableStateOf(false) }
+
+                    val messageFolderPickerLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocumentTree()
+                    ) { uri: Uri? ->
+                        uri?.let {
+                            try {
+                                contentResolver.takePersistableUriPermission(
+                                    it,
+                                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                )
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                            messageWidgetPreferences.saveFolderUri(it)
+                            messageWidgetFolderUri = it
+                        }
+                    }
+
                     val photoFolderPickerLauncher = rememberLauncherForActivityResult(
                         contract = ActivityResultContracts.OpenDocumentTree()
                     ) { uri: Uri? ->
@@ -120,6 +179,43 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // 設定のエクスポート（保存先を選んでJSONを書き出す）
+                    val exportSettingsLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.CreateDocument("application/json")
+                    ) { uri: Uri? ->
+                        uri?.let {
+                            try {
+                                contentResolver.openOutputStream(it)?.use { stream ->
+                                    stream.write(SettingsBackupManager.exportToJson(this).toByteArray())
+                                }
+                                Toast.makeText(this, "設定を書き出しました", Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                Toast.makeText(this, "書き出しに失敗しました", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+
+                    // 設定のインポート（ファイルを選んで読み込み、反映のためアプリを再起動する）
+                    val importSettingsLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.OpenDocument()
+                    ) { uri: Uri? ->
+                        uri?.let {
+                            try {
+                                val jsonText = contentResolver.openInputStream(it)
+                                    ?.bufferedReader()
+                                    ?.use { reader -> reader.readText() }
+                                if (jsonText != null) {
+                                    SettingsBackupManager.importFromJson(this, jsonText)
+                                    recreate()
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                Toast.makeText(this, "読み込みに失敗しました", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+
                     var selectedSlotIndex by remember { mutableIntStateOf(-1) }
                     var showAppSelectDialog by remember { mutableStateOf(false) }
                     var showActionMenuDialog by remember { mutableStateOf(false) }
@@ -127,6 +223,12 @@ class MainActivity : ComponentActivity() {
 
                     var selectedDrawerApp by remember { mutableStateOf<AppIcon?>(null) }
                     var showDrawerRenameDialog by remember { mutableStateOf(false) }
+                    var showDrawerActionMenuDialog by remember { mutableStateOf(false) }
+                    val folderPreferences = remember { FolderPreferences(this) }
+                    var folderMap by remember { mutableStateOf(folderPreferences.getFolders()) }
+                    var showFolderSelectDialog by remember { mutableStateOf(false) }
+                    var openedFolderName by remember { mutableStateOf<String?>(null) }
+                    var openedFolderApps by remember { mutableStateOf<List<AppIcon>>(emptyList()) }
 
                     HomeScreen(
                         appSlots = appSlots,
@@ -134,14 +236,19 @@ class MainActivity : ComponentActivity() {
                         currentFont = currentFont,
                         leftIconUri = leftButtonIconUri,
                         rightIconUri = rightButtonIconUri,
-                       photoWidgetFolderUri = photoWidgetFolderUri,
+                        photoWidgetFolderUri = photoWidgetFolderUri,
                         onRequestPhotoFolderPicker = { photoFolderPickerLauncher.launch(null) },
                         onRequestPhotoIntervalSetting = { showPhotoIntervalDialog = true },
                         photoWidgetIntervalSeconds = photoWidgetIntervalSeconds,
                         weatherLatitude = weatherLocation?.latitude,
                         weatherLongitude = weatherLocation?.longitude,
                         onRequestLocationPicker = { showLocationSearchDialog = true },
-
+                        messageWidgetFolderUri = messageWidgetFolderUri,
+                        onRequestMessageFolderPicker = { messageFolderPickerLauncher.launch(null) },
+                        messageWidgetIntervalSeconds = messageWidgetIntervalSeconds,
+                        onRequestMessageIntervalSetting = { showMessageIntervalDialog = true },
+                        onPageNumberLongClick = { showSettingsMenuDialog = true },
+                        registerHomeButtonHandler = { handler -> onHomeButtonPressed = handler },
                         onSlotClick = { index ->
                             val app = appSlots.getOrNull(index)
                             if (app != null) {
@@ -157,7 +264,12 @@ class MainActivity : ComponentActivity() {
                         },
                         onLongClickIcon = { app ->
                             selectedDrawerApp = app
-                            showDrawerRenameDialog = true
+                            showDrawerActionMenuDialog = true
+                        },
+                        folderMap = folderMap,
+                        onFolderClick = { name, apps ->
+                            openedFolderName = name
+                            openedFolderApps = apps
                         },
                         onLeftButtonLongClick = {
                             selectingForLeftButton = true
@@ -168,6 +280,44 @@ class MainActivity : ComponentActivity() {
                             showNavButtonDialog = true
                         }
                     )
+
+                    // 設定のバックアップ／復元メニュー
+                    if (showSettingsMenuDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showSettingsMenuDialog = false },
+                            title = { Text("設定のバックアップ") },
+                            text = { Text("フォント・アイコン配置・各ウィジェットの設定をファイルに書き出す、または読み込みます。読み込むとアプリが再起動します。") },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    showSettingsMenuDialog = false
+                                    exportSettingsLauncher.launch("retrohome_backup.json")
+                                }) {
+                                    Text("エクスポート")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = {
+                                    showSettingsMenuDialog = false
+                                    importSettingsLauncher.launch(arrayOf("application/json"))
+                                }) {
+                                    Text("インポート")
+                                }
+                            }
+                        )
+                    }
+
+                    // メッセージウィジェットの間隔設定ダイアログ
+                    if (showMessageIntervalDialog) {
+                        IntervalSettingDialog(
+                            currentTotalSeconds = messageWidgetIntervalSeconds,
+                            onConfirm = { seconds ->
+                                messageWidgetPreferences.saveIntervalSeconds(seconds)
+                                messageWidgetIntervalSeconds = seconds
+                                showMessageIntervalDialog = false
+                            },
+                            onDismiss = { showMessageIntervalDialog = false }
+                        )
+                    }
 
                     // 天気予報の地域選択ダイアログ
                     if (showLocationSearchDialog) {
@@ -182,7 +332,7 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-// 画像ウィジェットの間隔設定ダイアログ
+                    // 画像ウィジェットの間隔設定ダイアログ
                     if (showPhotoIntervalDialog) {
                         IntervalSettingDialog(
                             currentTotalSeconds = photoWidgetIntervalSeconds,
@@ -194,18 +344,7 @@ class MainActivity : ComponentActivity() {
                             onDismiss = { showPhotoIntervalDialog = false }
                         )
                     }
-// 画像ウィジェットの間隔設定ダイアログ
-                    if (showPhotoIntervalDialog) {
-                        IntervalSettingDialog(
-                            currentTotalSeconds = photoWidgetIntervalSeconds,
-                            onConfirm = { seconds ->
-                                photoWidgetPreferences.saveIntervalSeconds(seconds)
-                                photoWidgetIntervalSeconds = seconds
-                                showPhotoIntervalDialog = false
-                            },
-                            onDismiss = { showPhotoIntervalDialog = false }
-                        )
-                    }
+
                     // ナビボタンの画像変更ダイアログ
                     if (showNavButtonDialog) {
                         AlertDialog(
@@ -245,6 +384,7 @@ class MainActivity : ComponentActivity() {
                     if (showAppSelectDialog) {
                         AppSelectDialog(
                             installedApps = installedApps,
+                            folderMap = folderMap,
                             onAppSelected = { app ->
                                 if (selectedSlotIndex in appSlots.indices) {
                                     appSlots[selectedSlotIndex] = app
@@ -331,6 +471,88 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // ドロワー（アプリ一覧）長押し時のアクションメニュー
+// ドロワー（アプリ一覧）長押し時のアクションメニュー
+                    if (showDrawerActionMenuDialog && selectedDrawerApp != null) {
+                        val currentFolderName = folderPreferences.getFolderForPackage(selectedDrawerApp!!.packageName)
+                        DrawerActionMenuDialog(
+                            appLabel = selectedDrawerApp?.label ?: "",
+                            currentFolderName = currentFolderName,
+                            onRename = {
+                                showDrawerActionMenuDialog = false
+                                showDrawerRenameDialog = true
+                            },
+                            onMoveToFolder = {
+                                showDrawerActionMenuDialog = false
+                                showFolderSelectDialog = true
+                            },
+                            onRemoveFromFolder = {
+                                selectedDrawerApp?.let { app ->
+                                    folderPreferences.removeAppFromFolder(app.packageName)
+                                    folderMap = folderPreferences.getFolders()
+                                }
+                                showDrawerActionMenuDialog = false
+                                selectedDrawerApp = null
+                            },
+                            onUninstall = {
+                                showDrawerActionMenuDialog = false
+                                selectedDrawerApp?.let { app ->
+                                    try {
+                                        val intent = Intent(
+                                            Intent.ACTION_DELETE,
+                                            Uri.parse("package:${app.packageName}")
+                                        )
+                                        startActivity(intent)
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                        Toast.makeText(this, "アンインストール画面を開けませんでした: ${e.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                                selectedDrawerApp = null
+                            },
+                            onDismiss = {
+                                showDrawerActionMenuDialog = false
+                                selectedDrawerApp = null
+                            }
+                        )
+                    }
+
+                    // フォルダ選択ダイアログ
+                    if (showFolderSelectDialog && selectedDrawerApp != null) {
+                        FolderSelectDialog(
+                            existingFolderNames = folderMap.keys.toList(),
+                            onFolderSelected = { folderName ->
+                                selectedDrawerApp?.let { app ->
+                                    folderPreferences.addAppToFolder(folderName, app.packageName)
+                                    folderMap = folderPreferences.getFolders()
+                                }
+                                showFolderSelectDialog = false
+                                selectedDrawerApp = null
+                            },
+                            onDismiss = {
+                                showFolderSelectDialog = false
+                                selectedDrawerApp = null
+                            }
+                        )
+                    }
+
+                    // フォルダの中身一覧
+                    if (openedFolderName != null) {
+                        FolderContentsDialog(
+                            folderName = openedFolderName ?: "",
+                            apps = openedFolderApps,
+                            onAppClick = { app ->
+                                launchApp(app.packageName)
+                            },
+                            onAppLongClick = { app ->
+                                openedFolderName = null
+                                selectedDrawerApp = app
+                                showDrawerActionMenuDialog = true
+                            },
+                            onDismiss = { openedFolderName = null }
+                        )
+                    }
+
                     // ドロワー（アプリ一覧）用リネームダイアログ
                     if (showDrawerRenameDialog && selectedDrawerApp != null) {
                         val targetApp = selectedDrawerApp!!
@@ -411,6 +633,7 @@ class MainActivity : ComponentActivity() {
             val packageName = info.activityInfo.packageName
             if (packageName == this.packageName) return@mapNotNull null
 
+            val isSystemApp = (info.activityInfo.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
             val originalLabel = info.loadLabel(pm).toString()
             val icon = info.loadIcon(pm)
 
@@ -421,7 +644,8 @@ class MainActivity : ComponentActivity() {
                 packageName = packageName,
                 label = label,
                 icon = icon,
-                iconUri = iconUri
+                iconUri = iconUri,
+                isSystemApp = isSystemApp
             )
         }.sortedBy { it.label }
     }

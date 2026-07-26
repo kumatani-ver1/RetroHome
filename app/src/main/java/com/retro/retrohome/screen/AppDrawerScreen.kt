@@ -45,7 +45,9 @@ fun AppDrawerScreen(
     onDragEnd: () -> Unit,
     onLongClickIcon: (AppIcon) -> Unit,
     modifier: Modifier = Modifier,
-    currentFont: AppFont? = null
+    currentFont: AppFont? = null,
+    folderMap: Map<String, List<String>> = emptyMap(),
+    onFolderClick: (String, List<AppIcon>) -> Unit = { _, _ -> }
 ) {
     var dragOffset by remember { mutableFloatStateOf(0f) }
     var searchQuery by remember { mutableStateOf("") }
@@ -164,7 +166,9 @@ fun AppDrawerScreen(
                 IconGrid(
                     appIcons = filteredApps,
                     onLongClickIcon = onLongClickIcon,
-                    currentFont = null
+                    currentFont = null,
+                    folderMap = if (searchQuery.isBlank()) folderMap else emptyMap(),
+                    onFolderClick = onFolderClick
                 )
             }
         }

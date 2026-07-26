@@ -88,7 +88,7 @@ fun PhotoWidget(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(250.dp)
+            .height(244.dp)
             .padding(horizontal = 16.dp)
             .combinedClickable(
                 onClick = {

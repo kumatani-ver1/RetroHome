@@ -137,8 +137,7 @@ fun RetroAppItem(
                     indication = null,
                     onClick = onClick,
                     onLongClick = onLongClick
-                )
-                .padding(4.dp),
+                ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {

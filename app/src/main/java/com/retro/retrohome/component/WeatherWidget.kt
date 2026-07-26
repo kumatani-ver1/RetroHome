@@ -1,11 +1,11 @@
 package com.retro.retrohome.component
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AcUnit
@@ -27,8 +27,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.retro.retrohome.AppFont
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -45,12 +48,15 @@ data class DailyWeather(
 
 private val WEEKDAY_LABELS = arrayOf("日", "月", "火", "水", "木", "金", "土")
 
-// 天気コード（WMO）をアイコンに変換
+private fun roundToNearestTen(value: Int): Int {
+    return ((value + 5) / 10) * 10
+}
+
 private fun iconForWeatherCode(code: Int): ImageVector {
     return when (code) {
-        0 -> Icons.Outlined.WbSunny
-        1, 2, 3 -> Icons.Outlined.WbCloudy
-        45, 48 -> Icons.Outlined.Cloud
+        0, 1 -> Icons.Outlined.WbSunny
+        2 -> Icons.Outlined.WbCloudy
+        3, 45, 48 -> Icons.Outlined.Cloud
         51, 53, 55, 61, 63, 65, 80, 81, 82 -> Icons.Outlined.Grain
         71, 73, 75, 77, 85, 86 -> Icons.Outlined.AcUnit
         95, 96, 99 -> Icons.Outlined.Thunderstorm
@@ -58,7 +64,6 @@ private fun iconForWeatherCode(code: Int): ImageVector {
     }
 }
 
-// Open-Meteoから4日分の天気（日ごとの天気コード＋午前午後の降水確率）を取得
 private fun fetchWeather(latitude: Double, longitude: Double): List<DailyWeather> {
     val url = URL(
         "https://api.open-meteo.com/v1/forecast" +
@@ -82,7 +87,7 @@ private fun fetchWeather(latitude: Double, longitude: Double): List<DailyWeather
 
     val result = mutableListOf<DailyWeather>()
     for (dayIndex in 0 until dailyTimes.length()) {
-        val dateStr = dailyTimes.getString(dayIndex) // 例："2026-07-25"
+        val dateStr = dailyTimes.getString(dayIndex)
         val parts = dateStr.split("-")
         val year = parts[0].toInt()
         val month = parts[1].toInt()
@@ -93,11 +98,10 @@ private fun fetchWeather(latitude: Double, longitude: Double): List<DailyWeather
         val weekday = WEEKDAY_LABELS[calendar.get(Calendar.DAY_OF_WEEK) - 1]
         val dateLabel = "$month/$day($weekday)"
 
-        // 0〜11時を午前、12〜23時を午後として、それぞれの最大降水確率を採用
         var amMax = 0
         var pmMax = 0
         for (hourIndex in 0 until hourlyTimes.length()) {
-            val hourStr = hourlyTimes.getString(hourIndex) // 例："2026-07-25T00:00"
+            val hourStr = hourlyTimes.getString(hourIndex)
             if (!hourStr.startsWith(dateStr)) continue
             val hour = hourStr.substring(11, 13).toInt()
             val probability = hourlyProbabilities.optInt(hourIndex, 0)
@@ -112,28 +116,28 @@ private fun fetchWeather(latitude: Double, longitude: Double): List<DailyWeather
             DailyWeather(
                 dateLabel = dateLabel,
                 weatherCode = dailyCodes.getInt(dayIndex),
-                amRainProbability = amMax,
-                pmRainProbability = pmMax
+                amRainProbability = roundToNearestTen(amMax),
+                pmRainProbability = roundToNearestTen(pmMax)
             )
         )
     }
     return result
 }
 
-/**
- * ホーム画面に固定表示する「天気予報」ウィジェット。4日分を横並びで表示する。
- * タップで地域選択ダイアログを開く（未設定時も、地域を変更したい時も同じ操作）。
- */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WeatherWidget(
     latitude: Double?,
     longitude: Double?,
     onRequestLocationPicker: () -> Unit,
+    currentFont: AppFont? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var dailyWeatherList by remember { mutableStateOf<List<DailyWeather>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorOccurred by remember { mutableStateOf(false) }
+    val fontFamily = currentFont?.fontFamily ?: FontFamily.Default
 
     LaunchedEffect(latitude, longitude) {
         if (latitude != null && longitude != null) {
@@ -152,8 +156,22 @@ fun WeatherWidget(
     Surface(
         modifier = modifier
             .fillMaxWidth()
+            .height(64.dp)
             .padding(horizontal = 16.dp)
-            .clickable { onRequestLocationPicker() },
+            .combinedClickable(
+                onClick = {
+                    if (latitude == null) {
+                        onRequestLocationPicker()
+                    } else {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://weather.yahoo.co.jp/weather/jp/38/7310/38201.html")
+                        )
+                        context.startActivity(intent)
+                    }
+                },
+                onLongClick = onRequestLocationPicker
+            ),
         color = Color.Transparent,
         shape = RoundedCornerShape(10.dp),
         border = BorderStroke(2.dp, Color.White)
@@ -164,6 +182,7 @@ fun WeatherWidget(
                     text = "タップして地域を設定",
                     color = Color.White,
                     fontSize = 14.sp,
+                    fontFamily = fontFamily,
                     modifier = Modifier.padding(24.dp)
                 )
             }
@@ -172,6 +191,7 @@ fun WeatherWidget(
                     text = "天気を取得中…",
                     color = Color.White,
                     fontSize = 14.sp,
+                    fontFamily = fontFamily,
                     modifier = Modifier.padding(24.dp)
                 )
             }
@@ -180,27 +200,39 @@ fun WeatherWidget(
                     text = "天気の取得に失敗しました",
                     color = Color.White,
                     fontSize = 14.sp,
+                    fontFamily = fontFamily,
                     modifier = Modifier.padding(24.dp)
                 )
             }
             else -> {
-                Row(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                ) {
                     dailyWeatherList.forEach { day ->
                         Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(vertical = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier = Modifier.fillMaxHeight(),
+                            horizontalAlignment = Alignment.Start,
+                            verticalArrangement = Arrangement.Center
                         ) {
-                            Text(text = day.dateLabel, color = Color.White, fontSize = 12.sp)
-                            Icon(
-                                imageVector = iconForWeatherCode(day.weatherCode),
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.padding(vertical = 4.dp)
-                            )
-                            Text(text = "午前 ${day.amRainProbability}%", color = Color.White, fontSize = 11.sp)
-                            Text(text = "午後 ${day.pmRainProbability}%", color = Color.White, fontSize = 11.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = day.dateLabel, color = Color.White, fontSize = 11.sp, fontFamily = fontFamily)
+                                Icon(
+                                    imageVector = iconForWeatherCode(day.weatherCode),
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .size(18.dp)
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "午前${day.amRainProbability}%", color = Color.White, fontSize = 10.sp, fontFamily = fontFamily)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = "午後${day.pmRainProbability}%", color = Color.White, fontSize = 10.sp, fontFamily = fontFamily)
+                            }
                         }
                     }
                 }

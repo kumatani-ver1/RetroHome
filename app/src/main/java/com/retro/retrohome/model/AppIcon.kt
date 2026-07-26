@@ -9,10 +9,12 @@ import android.graphics.drawable.Drawable
  * @param packageName このアプリを起動するための識別子（例: "com.android.chrome"）
  * @param icon アプリのアイコン画像（取得できなかった場合は null）
  * @param iconUri ユーザーがカスタム設定したアイコン画像のUri文字列（未設定の場合はnull）
+ * @param isSystemApp プリインストール済み（アンインストール不可）のシステムアプリかどうか
  */
 data class AppIcon(
     val label: String,
     val packageName: String,
     val icon: Drawable? = null,
-    val iconUri: String? = null
+    val iconUri: String? = null,
+    val isSystemApp: Boolean = false
 )
